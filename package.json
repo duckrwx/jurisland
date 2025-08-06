@@ -1,0 +1,57 @@
+{
+  "name": "vitrine-marketplace",
+  "version": "1.0.0",
+  "description": "Decentralized marketplace with reputation system and jury resolution",
+  "main": "index.js",
+  "scripts": {
+    "dev": "python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+    "start": "python -m uvicorn main:app --host 0.0.0.0 --port 8000",
+    "install-deps": "pip install -r requirements.txt",
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "deploy": "npx hardhat run scripts/deploy.js --network localhost",
+    "deploy:testnet": "npx hardhat run scripts/deploy.js --network goerli",
+    "deploy:mainnet": "npx hardhat run scripts/deploy.js --network mainnet",
+    "node": "npx hardhat node",
+    "clean": "npx hardhat clean",
+    "verify": "npx hardhat verify --network",
+    "frontend:install": "cd frontend && npm install",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "setup": "npm run install-deps && npm run frontend:install && npm run compile"
+  },
+  "keywords": [
+    "marketplace",
+    "decentralized",
+    "blockchain",
+    "ethereum",
+    "solidity",
+    "reputation",
+    "jury",
+    "cess",
+    "web3"
+  ],
+  "author": "Vitrine Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "hardhat": "^2.19.2",
+    "dotenv": "^16.3.1"
+  },
+  "dependencies": {
+    "ethers": "^6.8.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "python": ">=3.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/vitrine-marketplace.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/vitrine-marketplace/issues"
+  },
+  "homepage": "https://github.com/your-org/vitrine-marketplace#readme"
+}

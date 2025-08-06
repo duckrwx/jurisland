@@ -1,0 +1,12 @@
+{
+  "network": "localhost",
+  "deployedAt": "2025-08-06T07:40:02.941Z",
+  "contracts": {
+    "VitrineCore": {
+      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+    },
+    "Marketplace": {
+      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+    }
+  }
+}

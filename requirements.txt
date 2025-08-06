@@ -1,0 +1,41 @@
+# FastAPI e dependências web
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0
+
+# Banco de dados
+sqlalchemy==2.0.23
+alembic==1.12.1
+
+# CESS SDK (se disponível)
+# cess-sdk==0.1.0  # Descomente se o SDK estiver disponível
+
+# Web3 e blockchain
+web3==6.11.3
+eth-account==0.10.0
+eth-utils==2.3.1
+
+# Utilidades
+pydantic==2.5.0
+pydantic-settings==2.1.0
+httpx==0.25.2
+aiofiles==23.2.1
+
+# CORS
+fastapi-cors==0.0.6
+
+# Logging e monitoramento
+python-json-logger==2.0.7
+
+# Testes (opcional)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2  # Para testes de API
+
+# Desenvolvimento
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.0
