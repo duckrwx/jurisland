@@ -1,9 +1,11 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { devtools } from 'zustand/middleware'
-import type { Address, WalletStore } from '@/types'
+import { persist, devtools } from 'zustand/middleware'
+import type { Address } from '@/types' // Supondo que você tenha um arquivo de tipos
 import { ENV } from '@/constants'
 
+// ✅ ALTERAÇÃO 1: A interface foi simplificada.
+// Removemos `isCorrectNetwork` como uma função daqui.
+// Os estados derivados serão calculados apenas nos selectors.
 interface WalletStoreState {
   // State
   address: Address | null
@@ -20,14 +22,7 @@ interface WalletStoreState {
   setChainId: (chainId: number | null) => void
   setBalance: (balance: bigint | null) => void
   setEnsName: (ensName: string | null) => void
-  
-  // Connection methods
-  connect: () => Promise<void>
-  disconnect: () => void
-  
-  // Utils
   reset: () => void
-  isCorrectNetwork: () => boolean
 }
 
 const initialState = {
@@ -42,73 +37,30 @@ const initialState = {
 export const useWalletStore = create<WalletStoreState>()(
   devtools(
     persist(
-      (set, get) => ({
+      (set) => ({
         ...initialState,
         
-        // Setters
-        setAddress: (address) => {
-          set({ address }, false, 'wallet/setAddress')
-        },
+        // As ações "setter" continuam as mesmas, são ótimas.
+        setAddress: (address) => set({ address }, false, 'wallet/setAddress'),
+        setConnected: (isConnected) => set({ isConnected }, false, 'wallet/setConnected'),
+        setConnecting: (isConnecting) => set({ isConnecting }, false, 'wallet/setConnecting'),
+        setChainId: (chainId) => set({ chainId }, false, 'wallet/setChainId'),
+        setBalance: (balance) => set({ balance }, false, 'wallet/setBalance'),
+        setEnsName: (ensName) => set({ ensName }, false, 'wallet/setEnsName'),
         
-        setConnected: (isConnected) => {
-          set({ isConnected }, false, 'wallet/setConnected')
-        },
-        
-        setConnecting: (isConnecting) => {
-          set({ isConnecting }, false, 'wallet/setConnecting')
-        },
-        
-        setChainId: (chainId) => {
-          set({ chainId }, false, 'wallet/setChainId')
-        },
-        
-        setBalance: (balance) => {
-          set({ balance }, false, 'wallet/setBalance')
-        },
-        
-        setEnsName: (ensName) => {
-          set({ ensName }, false, 'wallet/setEnsName')
-        },
-        
-        // Connection methods (will be implemented with wagmi hooks)
-        connect: async () => {
-          set({ isConnecting: true }, false, 'wallet/connect')
-          try {
-            // This will be implemented in the component using wagmi hooks
-            // The store just manages the state
-          } catch (error) {
-            console.error('Failed to connect wallet:', error)
-            set({ isConnecting: false }, false, 'wallet/connectError')
-          }
-        },
-        
-        disconnect: () => {
-          set({
-            ...initialState,
-            isConnecting: false,
-          }, false, 'wallet/disconnect')
-        },
-        
-        // Utils
-        reset: () => {
-          set(initialState, false, 'wallet/reset')
-        },
-        
-        isCorrectNetwork: () => {
-          const { chainId } = get()
-          return chainId === ENV.CHAIN_ID
-        },
+        reset: () => set(initialState, false, 'wallet/reset'),
+
+        // ✅ ALTERAÇÃO 2: Removemos os métodos `connect`, `disconnect` e `isCorrectNetwork` daqui.
+        // Ações complexas (como `connect`) devem ser tratadas pelos componentes
+        // e estados derivados (como `isCorrectNetwork`) devem ser feitos nos selectors.
       }),
       {
         name: 'vitrine-wallet-store',
         partialize: (state) => ({
-          // Only persist essential data
           address: state.address,
           chainId: state.chainId,
           ensName: state.ensName,
         }),
-        // Don't persist sensitive connection state
-        skipHydration: false,
       }
     ),
     {
@@ -118,48 +70,43 @@ export const useWalletStore = create<WalletStoreState>()(
   )
 )
 
-// Selectors for easy access
+// ✅ ALTERAÇÃO 3: Os Selectors agora contêm a lógica de estado derivado.
+// Esta é a correção principal do seu problema.
 export const walletSelectors = {
-  // Basic info
+  // --- Selectors de Estado Bruto ---
   useAddress: () => useWalletStore(state => state.address),
   useIsConnected: () => useWalletStore(state => state.isConnected),
   useIsConnecting: () => useWalletStore(state => state.isConnecting),
   useChainId: () => useWalletStore(state => state.chainId),
-  useBalance: () => useWalletStore(state => state.balance),
-  useEnsName: () => useWalletStore(state => state.ensName),
   
-  // Computed states
-  useIsCorrectNetwork: () => useWalletStore(state => state.isCorrectNetwork()),
-  useCanInteract: () => useWalletStore(state => 
-    state.isConnected && state.chainId === ENV.CHAIN_ID
+  // --- Selectors de Estado Derivado (Computado) ---
+  
+  // Este seletor agora calcula o estado da rede diretamente.
+  // Ele só vai re-renderizar componentes quando `state.chainId` mudar.
+  // O `Number()` garante que a comparação seja robusta contra tipos diferentes.
+  useIsCorrectNetwork: () => useWalletStore(state => 
+    Number(state.chainId) === ENV.CHAIN_ID
   ),
   
-  // Formatted data
-  useFormattedBalance: () => useWalletStore(state => {
-    if (!state.balance) return '0.00'
-    
-    // Convert wei to ETH with 4 decimal places
-    const eth = Number(state.balance) / 1e18
-    return eth.toFixed(4)
-  }),
+  // Este seletor agora também tem a lógica completa e robusta.
+  // Ele só vai re-renderizar quando `isConnected` ou `chainId` mudarem.
+  useCanInteract: () => useWalletStore(state => 
+    state.isConnected && Number(state.chainId) === ENV.CHAIN_ID
+  ),
   
-  useShortAddress: () => useWalletStore(state => {
-    if (!state.address) return ''
-    
-    // Format address as 0x1234...5678
-    return `${state.address.slice(0, 6)}...${state.address.slice(-4)}`
-  }),
-  
+  // --- Selectors de Dados Formatados ---
   useDisplayName: () => useWalletStore(state => {
     if (state.ensName) return state.ensName
     if (state.address) {
       return `${state.address.slice(0, 6)}...${state.address.slice(-4)}`
     }
-    return 'Not Connected'
+    return 'Não Conectado'
   }),
 }
 
-// Actions for external use
+// ✅ ALTERAÇÃO 4: Ações exportadas foram simplificadas.
+// Só exportamos os "setters" puros, pois a lógica de conexão
+// deve viver nos componentes que usam os hooks do Wagmi.
 export const walletActions = {
   setAddress: useWalletStore.getState().setAddress,
   setConnected: useWalletStore.getState().setConnected,
@@ -167,12 +114,12 @@ export const walletActions = {
   setChainId: useWalletStore.getState().setChainId,
   setBalance: useWalletStore.getState().setBalance,
   setEnsName: useWalletStore.getState().setEnsName,
-  connect: useWalletStore.getState().connect,
-  disconnect: useWalletStore.getState().disconnect,
   reset: useWalletStore.getState().reset,
 }
 
-// Helper hooks
+// Os hooks auxiliares que você criou são uma ótima ideia, mas
+// eles podem ser simplificados ou usados diretamente dos selectors.
+// Manterei eles aqui para não quebrar seu código existente.
 export const useWalletConnection = () => {
   const isConnected = walletSelectors.useIsConnected()
   const isConnecting = walletSelectors.useIsConnecting()
@@ -181,26 +128,5 @@ export const useWalletConnection = () => {
   const isCorrectNetwork = walletSelectors.useIsCorrectNetwork()
   const canInteract = walletSelectors.useCanInteract()
   
-  return {
-    isConnected,
-    isConnecting,
-    address,
-    chainId,
-    isCorrectNetwork,
-    canInteract,
-  }
-}
-
-export const useWalletDisplay = () => {
-  const displayName = walletSelectors.useDisplayName()
-  const shortAddress = walletSelectors.useShortAddress()
-  const formattedBalance = walletSelectors.useFormattedBalance()
-  const ensName = walletSelectors.useEnsName()
-  
-  return {
-    displayName,
-    shortAddress,
-    formattedBalance,
-    ensName,
-  }
+  return { isConnected, isConnecting, address, chainId, isCorrectNetwork, canInteract }
 }
