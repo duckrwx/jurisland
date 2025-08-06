@@ -5,22 +5,15 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./VitrineCore.sol";
 
-// Interface para interagir com o contrato de júri
-interface IVitrineJuri {
-    function initiateDispute(uint256 purchaseId) external;
-}
-
 contract Marketplace is Ownable, ReentrancyGuard {
 
     VitrineCore public vitrineCore;
-    IVitrineJuri public vitrineJuri;
 
     enum PurchaseStatus {
         Pending,        // Aguardando entrega
         DeliveryConfirmed, // Entregue, janela de 7 dias para disputa/devolução
         ReturnRequested, // Comprador pediu devolução
         ReturnReceived, // Vendedor recebeu devolução, janela de 3 dias para inspeção
-        DisputeOpen,    // Disputa aberta, aguardando júri
         Completed,      // Venda finalizada com sucesso
         Refunded        // Dinheiro devolvido ao comprador
     }
@@ -155,37 +148,34 @@ contract Marketplace is Ownable, ReentrancyGuard {
         _processRefund(_purchaseId, purchase);
     }
 
+    // --- DISPUTE SIMPLIFICADO (SEM JÚRI) ---
     function openDispute(uint256 _purchaseId) external {
         EscrowedPurchase storage purchase = purchases[_purchaseId];
         bool isBuyer = msg.sender == purchase.buyer;
         bool isSeller = msg.sender == purchase.seller;
         require(isBuyer || isSeller, "Only buyer or seller can open dispute");
         
-        // Regras de quando uma disputa pode ser aberta
-        if (isBuyer) require(purchase.status == PurchaseStatus.DeliveryConfirmed, "Invalid state for buyer dispute");
-        if (isSeller) require(purchase.status == PurchaseStatus.ReturnReceived, "Invalid state for seller dispute");
-
-        purchase.status = PurchaseStatus.DisputeOpen;
-        vitrineJuri.initiateDispute(_purchaseId); // Chama o contrato de júri
         emit DisputeOpened(_purchaseId, msg.sender);
+        
+        // Por enquanto, disputas ficam abertas para resolução manual
+        // TODO: Implementar sistema de júri futuramente
     }
-    
-    // --- FUNÇÃO CHAMADA PELO CONTRATO DE JÚRI ---
 
-    function executeDisputeVerdict(uint256 _purchaseId, address _winner) external nonReentrant {
-        // require(msg.sender == address(vitrineJuri), "Only Jury contract can call this");
+    // --- FUNÇÃO ADMIN PARA RESOLVER DISPUTAS (TEMPORÁRIA) ---
+    function resolveDispute(uint256 _purchaseId, address _winner) external onlyOwner nonReentrant {
         EscrowedPurchase storage purchase = purchases[_purchaseId];
-        require(purchase.status == PurchaseStatus.DisputeOpen, "Dispute not open");
+        require(purchase.status == PurchaseStatus.DeliveryConfirmed || 
+                purchase.status == PurchaseStatus.ReturnReceived, "Invalid state for dispute");
 
         if (_winner == purchase.buyer) {
             _processRefund(_purchaseId, purchase);
-            // Penalidades
-            vitrineCore.updateReputation(purchase.seller, "SELLER", -50);
+            // Penalidade leve para vendedor
+            vitrineCore.updateReputation(purchase.seller, "SELLER", -20);
         } else if (_winner == purchase.seller) {
             purchase.status = PurchaseStatus.Completed;
             _distributeFunds(purchase);
-            // Penalidades
-            vitrineCore.updateReputation(purchase.buyer, "BUYER", -40);
+            // Penalidade leve para comprador
+            vitrineCore.updateReputation(purchase.buyer, "BUYER", -15);
         }
     }
 
@@ -214,9 +204,29 @@ contract Marketplace is Ownable, ReentrancyGuard {
         emit PurchaseRefunded(_purchaseId);
     }
 
-    // --- FUNÇÕES ADMIN ---
+    // --- FUNÇÕES DE LEITURA ---
+    
+    function getProduct(uint256 _productId) external view returns (Product memory) {
+        return products[_productId];
+    }
+    
+    function getPurchase(uint256 _purchaseId) external view returns (EscrowedPurchase memory) {
+        return purchases[_purchaseId];
+    }
+    
+    function getProductCounter() external view returns (uint256) {
+        return _productCounter;
+    }
 
-    function setJuriContract(address _juriAddress) external onlyOwner {
-        vitrineJuri = IVitrineJuri(_juriAddress);
+    // --- FUNÇÕES ADMIN ---
+    
+    function setPlatformFee(uint256 _newFeeBps) external onlyOwner {
+        require(_newFeeBps <= 1000, "Fee too high"); // Max 10%
+        platformFeeBps = _newFeeBps;
+    }
+    
+    function setFeeRecipient(address _newRecipient) external onlyOwner {
+        require(_newRecipient != address(0), "Invalid address");
+        feeRecipient = _newRecipient;
     }
 }

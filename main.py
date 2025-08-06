@@ -8,6 +8,7 @@ from datetime import datetime
 import logging
 import json
 import os
+from dotenv import load_dotenv
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
